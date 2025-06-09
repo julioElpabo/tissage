@@ -224,7 +224,7 @@ export default {
         { couleurs: ['#ffaa00'], epaisseur: 1.0 }
       ],
       filsVertical: [
-        { couleurs: ['#0000ff'], epaisseur: 1.0 },
+        { couleurs: ['#1000ff'], epaisseur: 1.0 },
         { couleurs: ['#55aaff'], epaisseur: 1.0 }
       ],
       distanceClousHorizontal: 1.0,
