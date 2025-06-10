@@ -26,7 +26,10 @@
                 :style="{ backgroundColor: c, width: '18px', height: '18px', border: '1px solid #aaa' }"
               ></div>
             </div>
-            <span class="ms-2 text-muted" style="font-size: 0.8em;">{{ fil.epaisseur }} em</span>
+            <span class="ms-2 text-muted" style="font-size: 0.8em;">
+              {{ fil.epaisseur }} em ×{{ fil.repetition || 1 }}
+            </span>
+
             <button class="btn btn-sm btn-outline-primary ms-1" @click="openModal('horizontal', i)">✎</button>
             <button class="btn btn-sm btn-outline-danger ms-1" @click="removeFil('horizontal', i)">🗑</button>
           </div>
@@ -59,6 +62,9 @@
         <!-- Paramètres -->
         <div class="mb-4">
           <h5>Paramètres</h5>
+          <label class="form-label">Motif (1-10)</label>
+          <input type="number" v-model.number="motifRepetition" min="1" max="10" class="form-control mb-2" />
+
           <label class="form-label">Nombre de colonnes (fils verticaux)</label>
           <input type="number" v-model.number="nbColonnes" class="form-control mb-2" />
           <label class="form-label">Nombre de lignes (fils horizontaux)</label>
@@ -213,6 +219,14 @@
                   step="0.01"
                   class="form-range"
                 />
+                <label class="form-label">Répétition</label>
+                <input
+                  type="number"
+                  v-model.number="modalRepetition"
+                  min="1"
+                  class="form-control mb-3"
+                />
+
                 <!-- APERÇU EN DIRECT -->
                 <div
                   class="my-3 mx-auto"
@@ -248,13 +262,14 @@ export default {
   data() {
     return {
       filsHorizontal: [
-        { couleurs: ['#ff0000'], epaisseur: 1.0 },
-        { couleurs: ['#ffaa00'], epaisseur: 1.0 }
+        { couleurs: ['#ff0000'], epaisseur: 1.0, repetition: 1 },
+        { couleurs: ['#ffaa00'], epaisseur: 1.0, repetition: 1 }
       ],
       filsVertical: [
-        { couleurs: ['#1000ff'], epaisseur: 1.0 },
-        { couleurs: ['#55aaff'], epaisseur: 1.0 }
+        { couleurs: ['#1000ff'], epaisseur: 1.0, repetition: 1 },
+        { couleurs: ['#55aaff'], epaisseur: 1.0, repetition: 1 }
       ],
+
       distanceClousHorizontal: 1.0,
       distanceClousVertical: 1.0,
       nbColonnes: 31,
@@ -265,7 +280,7 @@ export default {
       modalType: 'horizontal',
       modalCouleurs: [],
       modalColor: '#000000',
-      modalEpaisseur: 0.6,
+      modalEpaisseur: 1.0,
       editingIndex: null,
       previewDataUrl: '',
       afficherClous: true,
@@ -273,7 +288,8 @@ export default {
             "droite":[0,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1],
             "bas":   [0,1,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,0],
             "gauche":[0,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,1,1,1,0]
-      }
+      },
+      motifRepetition: 1
     };
   },
   computed: {
@@ -305,7 +321,8 @@ export default {
         filsHorizontal: this.filsHorizontal,
         filsVertical: this.filsVertical,
         nbColonnes: this.nbColonnes,
-        nbLignes: this.nbLignes
+        nbLignes: this.nbLignes,
+        motifRepetition: this.motifRepetition
       };
       const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -329,6 +346,7 @@ export default {
           this.filsVertical = data.filsVertical || [];
           this.nbColonnes = data.nbColonnes;
           this.nbLignes = data.nbLignes;
+          this.motifRepetition = data.motifRepetition || 1;
           this.updatePreview();
         } catch (err) {
           console.error('JSON invalide', err);
@@ -341,60 +359,95 @@ export default {
       window.print();
     },
 
-   generateWeavingSegments() {
-  const underSegments = [];
-  const overSegments = [];
-  const cellWidth = this.distanceClousHorizontal * 10;
-  const cellHeight = this.distanceClousVertical * 10;
+    generateWeavingSegments() {
+      const underSegments = [];
+      const overSegments = [];
+      const cellWidth = this.distanceClousHorizontal * 10;
+      const cellHeight = this.distanceClousVertical * 10;
+      const motif = this.motifRepetition;
 
-  for (let row = 0; row < this.nbLignes; row++) {
-    for (let col = 0; col < this.nbColonnes; col++) {
-      const x = Math.round(col * cellWidth);
-      const y = Math.round(row * cellHeight);
+      for (let row = 0; row < this.nbLignes; row++) {
+        for (let col = 0; col < this.nbColonnes; col++) {
+          const x = Math.round(col * cellWidth);
+          const y = Math.round(row * cellHeight);
 
-      const motif = (row + col) % 2;
+          // Détermine le motif dessus/dessous
+          const totalCycle = motif * 2;
+          const cyclePos = (row + col) % totalCycle;
+          const isHorizontalOnTop = cyclePos < motif;
 
-      // === HORIZONTAL (toujours tracé)
-      const filH = this.filsHorizontal[row % this.filsHorizontal.length];
-      const colorH = filH.couleurs[0];
-      const baseH = filH.epaisseur * 10;
-      const factorH = 0.6 + 0.4 * Math.random();
-      const epH = baseH * factorH;
-      const yMid = y + cellHeight / 2;
+          // === HORIZONTAL
+          const { fil: filH, sequenceIndex: sH } = this.getFilByIndexWithIndex(this.filsHorizontal, row);
+          const colorH = filH.couleurs[sH % filH.couleurs.length];
+          const baseH = filH.epaisseur * 10;
+          const factorH = 0.6 + 0.4 * Math.random();
+          const epH = baseH * factorH;
+          const yMid = y + cellHeight / 2;
 
-      const hSeg = {
-        d: `M ${x} ${yMid - epH / 2} H ${x + cellWidth} V ${yMid + epH / 2} H ${x} Z`,
-        fill: colorH
-      };
+          const hSeg = {
+            d: `M ${x} ${yMid - epH / 2} H ${x + cellWidth} V ${yMid + epH / 2} H ${x} Z`,
+            fill: colorH
+          };
 
-      // === VERTICAL (toujours tracé)
-      const filV = this.filsVertical[col % this.filsVertical.length];
-      const colorV = filV.couleurs[0];
-      const baseV = filV.epaisseur * 10;
-      const factorV = 0.6 + 0.4 * Math.random();
-      const epV = baseV * factorV;
-      const xMid = x + cellWidth / 2;
+          // === VERTICAL
+          const { fil: filV, sequenceIndex: sV } = this.getFilByIndexWithIndex(this.filsVertical, col);
+          const colorV = filV.couleurs[sV % filV.couleurs.length];
 
-      const vSeg = {
-        d: `M ${xMid - epV / 2} ${y} V ${y + cellHeight} H ${xMid + epV / 2} V ${y} Z`,
-        fill: colorV
-      };
+          const baseV = filV.epaisseur * 10;
+          const factorV = 0.6 + 0.4 * Math.random();
+          const epV = baseV * factorV;
+          const xMid = x + cellWidth / 2;
 
-      if (motif === 0) {
-        // Horizontal au-dessus
-        underSegments.push({ ...vSeg, filter: 'url(#ombre-dessous)' });
-        overSegments.push(hSeg);
-      } else {
-        // Vertical au-dessus
-        underSegments.push({ ...hSeg, filter: 'url(#ombre-dessous)' });
-        overSegments.push(vSeg);
+          const vSeg = {
+            d: `M ${xMid - epV / 2} ${y} V ${y + cellHeight} H ${xMid + epV / 2} V ${y} Z`,
+            fill: colorV
+          };
+
+          if (isHorizontalOnTop) {
+            underSegments.push({ ...vSeg, filter: 'url(#ombre-dessous)' });
+            overSegments.push(hSeg);
+          } else {
+            underSegments.push({ ...hSeg, filter: 'url(#ombre-dessous)' });
+            overSegments.push(vSeg);
+          }
+        }
       }
 
-    }
-  }
+      return [...underSegments, ...overSegments]; // ordre important
+    },
 
-  return [...underSegments, ...overSegments]; // ordre important !
-},
+
+    getFilByIndex(fils, index) {
+      let total = 0;
+      for (let i = 0; i < fils.length; i++) {
+        total += fils[i].repetition || 1;
+        if (index < total) return fils[i];
+      }
+      return fils[fils.length - 1]; // fallback
+    },
+    getFilByIndexWithIndex(fils, index) {
+      let total = 0;
+      for (let i = 0; i < 10000; i++) {
+        for (let j = 0; j < fils.length; j++) {
+          const rep = fils[j].repetition || 1;
+          for (let k = 0; k < rep; k++) {
+            if (total === index) {
+              return {
+                fil: fils[j],
+                sequenceIndex: i * fils.length + j,
+                relativeIndex: k
+              };
+            }
+            total++;
+          }
+        }
+      }
+      const last = fils[fils.length - 1];
+      return { fil: last, sequenceIndex: 0, relativeIndex: 0 };
+    },
+
+
+
 
 
      generateHorizontalPath(lineIndex) {
@@ -489,10 +542,13 @@ export default {
         this.modalCouleurs = [...fil.couleurs];
         this.modalEpaisseur = fil.epaisseur;
         this.modalColor = fil.couleurs[0];
+        this.modalRepetition = fil.repetition || 1;
       } else {
         this.modalCouleurs = [];
-        this.modalEpaisseur = 0.6;
+        this.modalEpaisseur = 1.0;
         this.modalColor = '#000000';
+        this.modalRepetition = 1;
+
       }
       this.showModal = true;
     },
@@ -508,7 +564,8 @@ export default {
     confirmAddFil() {
   const fil = {
     couleurs: [this.modalColor],
-    epaisseur: this.modalEpaisseur
+    epaisseur: this.modalEpaisseur,
+    repetition: this.modalRepetition
   };
 
   if (this.modalType === 'horizontal') {
@@ -553,7 +610,8 @@ export default {
     nbColonnes: 'updatePreview',
     nbLignes: 'updatePreview',
     distanceClousHorizontal: 'updatePreview',
-    distanceClousVertical: 'updatePreview'
+    distanceClousVertical: 'updatePreview',
+    motifRepetition: 'updatePreview'
   }
 };
 </script>
