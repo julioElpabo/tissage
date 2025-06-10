@@ -7,6 +7,9 @@
 
         <hr>
         <button class="btn btn-sm btn-secondary mb-2 d-print-none" @click="printPage">🖨 Imprimer</button>
+        <button class="btn btn-sm btn-primary mb-2 ms-1 d-print-none" @click="saveConfig">💾 Enregistrer</button>
+        <button class="btn btn-sm btn-primary mb-2 ms-1 d-print-none" @click="triggerLoad">📂 Charger</button>
+        <input type="file" accept="application/json" ref="fileInput" class="d-none" @change="loadConfig">
 
         <hr class="d-print-none">
         <!-- Fils horizontaux -->
@@ -283,6 +286,42 @@ export default {
   }
 },
   methods: {
+    saveConfig() {
+      const config = {
+        filsHorizontal: this.filsHorizontal,
+        filsVertical: this.filsVertical,
+        nbColonnes: this.nbColonnes,
+        nbLignes: this.nbLignes
+      };
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tissage-config.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    triggerLoad() {
+      this.$refs.fileInput.click();
+    },
+    loadConfig(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const data = JSON.parse(e.target.result);
+          this.filsHorizontal = data.filsHorizontal || [];
+          this.filsVertical = data.filsVertical || [];
+          this.nbColonnes = data.nbColonnes;
+          this.nbLignes = data.nbLignes;
+          this.updatePreview();
+        } catch (err) {
+          console.error('JSON invalide', err);
+        }
+      };
+      reader.readAsText(file);
+    },
  
    printPage() {
       window.print();
