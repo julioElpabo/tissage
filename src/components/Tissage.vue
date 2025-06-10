@@ -4,6 +4,11 @@
     <div class="row">
       <!-- Colonne 1 : Interface utilisateur -->
       <div class="col-lg-2">
+
+        <hr>
+        <button class="btn btn-sm btn-secondary mb-2 d-print-none" @click="printPage">🖨 Imprimer</button>
+
+        <hr class="d-print-none">
         <!-- Fils horizontaux -->
         <div class="mb-4">
           <h5>Fils horizontaux</h5>
@@ -21,6 +26,8 @@
           </div>
           <button class="btn btn-sm btn-outline-primary mt-2" @click="openModal('horizontal')">➕ Ajouter un fil</button>
         </div>
+
+        <hr>
 
         <!-- Fils verticaux -->
         <div class="mb-4">
@@ -40,6 +47,8 @@
           <button class="btn btn-sm btn-outline-primary mt-2" @click="openModal('vertical')">➕ Ajouter un fil</button>
         </div>
 
+        <hr>
+
         <!-- Paramètres -->
         <div class="mb-4">
           <h5>Paramètres</h5>
@@ -58,7 +67,7 @@
 
       <!-- Colonne 2 : Aperçu principal -->
      <div class="col-lg-4">
-  <h5 class="mt-3">Aperçu du tissage</h5>
+  <h5 class="mt-3 d-print-none">Aperçu du tissage</h5>
   <div
     v-if="filsHorizontal.length && filsVertical.length"
     class="tissage-preview border position-relative"
@@ -66,12 +75,12 @@
     ref="preview"
   >
     <!-- SVG tissage tissé -->
-    <svg
+    <svg shape-rendering="crispEdges"
             :width="nbColonnes * distanceClousHorizontal + 'em'"
             :height="nbLignes * distanceClousVertical + 'em'"
             class="position-absolute"
             style="top: 0; left: 0; z-index: 1;"
-            :viewBox="`0 0 ${nbColonnes * distanceClousHorizontal * 10} ${nbLignes * distanceClousVertical * 10}`"
+            :viewBox="`0 0 ${Math.round(nbColonnes * distanceClousHorizontal * 10)} ${Math.round(nbLignes * distanceClousVertical * 10)}`"
             preserveAspectRatio="none"
           >
             <!--
@@ -88,6 +97,7 @@
                 :key="'weave-' + i"
                 v-bind="seg"
                 :filter="seg.filter ? seg.filter : undefined"
+                vector-effect="non-scaling-stroke"
               />
           
 
@@ -95,7 +105,7 @@
           </svg>
 
     <!-- Clous -->
-    <template v-if="afficherClous">
+    <div v-if="afficherClous ">
       <div
         v-for="c in clousHautActifs"
         :key="'clou-top-' + c.index"
@@ -136,14 +146,14 @@
           transform: 'translateY(-50%)'
         }"
       ></div>
-    </template>
+    </div>
   </div>
 </div>
 
 
       <!-- Colonne 3 : Répétition -->
    
-        <div class="col-lg-6 d-flex flex-column">
+        <div class="col-lg-6 d-flex flex-column d-print-none">
           <h5 class="mt-3">Répétition {{echelle}}x{{ echelle }}</h5>
           <div
             class="flex-fill border"
@@ -217,6 +227,7 @@ import html2canvas from 'html2canvas';
 
 export default {
   name: 'TissageView',
+
   data() {
     return {
       filsHorizontal: [
@@ -272,6 +283,11 @@ export default {
   }
 },
   methods: {
+ 
+   printPage() {
+      window.print();
+    },
+
    generateWeavingSegments() {
   const underSegments = [];
   const overSegments = [];
@@ -280,8 +296,9 @@ export default {
 
   for (let row = 0; row < this.nbLignes; row++) {
     for (let col = 0; col < this.nbColonnes; col++) {
-      const x = col * cellWidth;
-      const y = row * cellHeight;
+      const x = Math.round(col * cellWidth);
+      const y = Math.round(row * cellHeight);
+
       const motif = (row + col) % 2;
 
       // === HORIZONTAL (toujours tracé)
@@ -471,6 +488,11 @@ export default {
   },
   mounted() {
     this.updatePreview();
+
+    if (window.matchMedia && window.matchMedia('print').matches) {
+      this.distanceClousHorizontal = 0.6;
+      this.distanceClousVertical = 0.6;
+    }
   },
   watch: {
     filsHorizontal: 'updatePreview',
@@ -509,4 +531,66 @@ html, body, .container-fluid, .row {
   z-index: 2;
   border: 1px solid white;
 }
+
+.tissage-preview svg {
+  image-rendering: pixelated;
+}
+
+
+
+@media print {
+  body, html {
+    margin: 0;
+    padding: 0;
+  }
+
+  .container-fluid {
+    margin: 0 !important;
+    padding: 0 !important;
+    zoom: 75%; /* Réduit un peu pour tout faire tenir */
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  .col-lg-2, .col-lg-4, .col-lg-6 {
+    flex: 0 0 auto;
+    width: 33.33% !important; /* Pour les forcer à être côte à côte */
+    max-width: 33.33% !important;
+  }
+
+  .d-print-none {
+    display: none !important;
+  }
+
+  .modal,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  .tissage-preview {
+    page-break-inside: avoid;
+  }
+
+  .tissage-preview {
+    overflow: visible !important;
+  }
+
+   /* forcer l’impression des fonds et bordures */
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+
+  @page {
+    size: A4 landscape; /* Optionnel : imprime en mode paysage */
+    margin: 1cm;
+  }
+}
+
+
+
 </style>
