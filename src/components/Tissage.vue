@@ -3,22 +3,25 @@
     <h2 class="mb-4">Métier à tisser</h2>
     <div class="row">
       <!-- Colonne 1 : Interface utilisateur -->
-      <div class="col-lg-2">
+      <div class="col-12 col-lg-2">
 
         <hr>
-        <button class="btn btn-sm btn-secondary mb-2 d-print-none" @click="printPage">🖨 Imprimer</button>
+        
         <button class="btn btn-sm btn-primary mb-2 ms-1 d-print-none" @click="saveConfig">💾 Enregistrer</button>
         <button class="btn btn-sm btn-primary mb-2 ms-1 d-print-none" @click="triggerLoad">📂 Charger</button>
         <input type="file" accept="application/json" ref="fileInput" class="d-none" @change="loadConfig">
+
+        <button class="btn btn-sm btn-secondary mb-2 d-print-none" @click="printPage">🖨 Imprimer</button>
 
         <hr class="d-print-none">
         <!-- Fils horizontaux -->
         <div class="mb-4">
           <h5>Fils horizontaux</h5>
           <div v-for="(fil, i) in filsHorizontal" :key="'fh-' + i" class="d-flex align-items-center mb-1">
-            <div class="d-flex" style="gap:2px;">
+            <div class="d-flex pointer" style="gap:2px;">
               <div
                 v-for="(c, j) in fil.couleurs"
+                @click="openModal('horizontal', i)"
                 :key="'fhc-' + i + '-' + j"
                 :style="{ backgroundColor: c, width: '18px', height: '18px', border: '1px solid #aaa' }"
               ></div>
@@ -36,9 +39,10 @@
         <div class="mb-4">
           <h5>Fils verticaux</h5>
           <div v-for="(fil, i) in filsVertical" :key="'fv-' + i" class="d-flex align-items-center mb-1">
-            <div class="d-flex" style="gap:2px;">
+            <div class="d-flex pointer" style="gap:2px;">
               <div
                 v-for="(c, j) in fil.couleurs"
+                @click="openModal('vertical', i)"
                 :key="'fvc-' + i + '-' + j"
                 :style="{ backgroundColor: c, width: '18px', height: '18px', border: '1px solid #aaa' }"
               ></div>
@@ -68,159 +72,169 @@
         </div>
       </div>
 
-      <!-- Colonne 2 : Aperçu principal -->
-     <div class="col-lg-4">
-  <h5 class="mt-3 d-print-none">Aperçu du tissage</h5>
-  <div
-    v-if="filsHorizontal.length && filsVertical.length"
-    class="tissage-preview border position-relative"
-    :style="previewContainerStyle"
-    ref="preview"
-  >
-    <!-- SVG tissage tissé -->
-    <svg shape-rendering="crispEdges"
-            :width="nbColonnes * distanceClousHorizontal + 'em'"
-            :height="nbLignes * distanceClousVertical + 'em'"
-            class="position-absolute"
-            style="top: 0; left: 0; z-index: 1;"
-            :viewBox="`0 0 ${Math.round(nbColonnes * distanceClousHorizontal * 10)} ${Math.round(nbLignes * distanceClousVertical * 10)}`"
-            preserveAspectRatio="none"
-          >
-            <!--
-            <defs>
-              <filter id="ombre-dessous" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="black" flood-opacity="0.3" />
-              </filter>
-            </defs>-->
-
-            <g>
-              
-              <path
-                v-for="(seg, i) in generateWeavingSegments()"
-                :key="'weave-' + i"
-                v-bind="seg"
-                :filter="seg.filter ? seg.filter : undefined"
-                vector-effect="non-scaling-stroke"
-              />
-          
-
-            </g>
-          </svg>
-
-    <!-- Clous -->
-    <div v-if="afficherClous ">
-      <div
-        v-for="c in clousHautActifs"
-        :key="'clou-top-' + c.index"
-        class="position-absolute clou"
-        :style="{
-          top: `-${clouOffset}px`,
-          left: `${c.index * distanceClousHorizontal}em`,
-          transform: 'translateX(-50%)'
-        }"
-      ></div>
-      <div
-        v-for="c in clousBasActifs"
-        :key="'clou-bottom-' + c.index"
-        class="position-absolute clou"
-        :style="{
-          top: `${nbLignes * distanceClousVertical}em`,
-          left: `${c.index * distanceClousHorizontal}em`,
-          transform: 'translateX(-50%)'
-        }"
-      ></div>
-      <div
-        v-for="c in clousGaucheActifs"
-        :key="'clou-left-' + c.index"
-        class="position-absolute clou"
-        :style="{
-          left: `-${clouOffset}px`,
-          top: `${c.index * distanceClousVertical}em`,
-          transform: 'translateY(-50%)'
-        }"
-      ></div>
-      <div
-        v-for="c in clousDroiteActifs"
-        :key="'clou-right-' + c.index"
-        class="position-absolute clou"
-        :style="{
-          left: `${nbColonnes * distanceClousHorizontal}em`,
-          top: `${c.index * distanceClousVertical}em`,
-          transform: 'translateY(-50%)'
-        }"
-      ></div>
-    </div>
-  </div>
-</div>
-
-
-      <!-- Colonne 3 : Répétition -->
-   
-        <div class="col-lg-6 d-flex flex-column d-print-none">
-          <h5 class="mt-3">Répétition {{echelle}}x{{ echelle }}</h5>
-          <div
-            class="flex-fill border"
-            :style="{
-              backgroundImage: previewDataUrl ? `url(${previewDataUrl})` : 'none',
-              backgroundRepeat: 'repeat',
-              backgroundSize: `${nbColonnes * distanceClousHorizontal / echelle}em ${nbLignes * distanceClousVertical / echelle}em`,
-              backgroundColor: '#fff',
-              minHeight: '0'
-            }"
-          ></div>
-        </div>
-
-
-    </div>
-
-    <!-- MODAL -->
-    <div v-if="showModal" class="modal-backdrop" style="position:fixed; top:0; left:0; right:0; bottom:0; background:#00000088; z-index:10;">
-      <div class="modal d-block" tabindex="-1" style="z-index:11;">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">{{ editingIndex !== null ? 'Modifier' : 'Ajouter' }} un fil {{ modalType }}</h5>
-              <button type="button" class="btn-close" @click="closeModal()"></button>
-            </div>
-           <div class="modal-body">
-              <label class="form-label">Couleur</label>
-              <input
-                type="color"
-                v-model="modalColor"
-                class="form-control form-control-color mb-3"
-              />
-
-              <label class="form-label">Épaisseur : {{ modalEpaisseur.toFixed(2) }} em</label>
-              <input
-                type="range"
-                v-model.number="modalEpaisseur"
-                min="0.2"
-                max="1.2"
-                step="0.01"
-                class="form-range"
-              />
-              <!-- APERÇU EN DIRECT -->
-              <div
-                class="my-3 mx-auto"
-                :style="{
-                  height: modalEpaisseur + 'em',
-                  width: '80%',
-                  backgroundColor: modalColor,
-                  border: '1px solid #000',
-                  borderRadius: '4px'
-                }"
-              ></div>
-
-            </div>
+      <!-- Colonne 2 : -->
+      <div class="col-12 col-lg-10">
+        <div class="container">
+          <div class="row" >
             
+            <!-- Colonne 2.1 : Aperçu principal -->
+            <div class="col-12 col-6-at-1300"  >
 
-            <div class="modal-footer">
-              <button class="btn btn-secondary" @click="closeModal">Annuler</button>
-              <button class="btn btn-primary" @click="confirmAddFil">OK</button>
+                <h5 class="mt-3 d-print-none">Aperçu du tissage</h5>
+
+                <div
+                  v-if="filsHorizontal.length && filsVertical.length"
+                  class="tissage-preview border position-relative"
+                  :style="previewContainerStyle"
+                  ref="preview"
+                >
+                  <!-- SVG tissage tissé -->
+                  <svg shape-rendering="crispEdges"
+                          :width="nbColonnes * distanceClousHorizontal + 'em'"
+                          :height="nbLignes * distanceClousVertical + 'em'"
+                          class="position-absolute"
+                          style="top: 0; left: 0; z-index: 1;"
+                          :viewBox="`0 0 ${Math.round(nbColonnes * distanceClousHorizontal * 10)} ${Math.round(nbLignes * distanceClousVertical * 10)}`"
+                          preserveAspectRatio="none"
+                        >
+                          <!--
+                          <defs>
+                            <filter id="ombre-dessous" x="-50%" y="-50%" width="200%" height="200%">
+                              <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="black" flood-opacity="0.3" />
+                            </filter>
+                          </defs>-->
+
+                          <g>
+                            
+                            <path
+                              v-for="(seg, i) in generateWeavingSegments()"
+                              :key="'weave-' + i"
+                              v-bind="seg"
+                              :filter="seg.filter ? seg.filter : undefined"
+                              vector-effect="non-scaling-stroke"
+                            />
+                        
+
+                          </g>
+                  </svg>
+
+                  <!-- Clous -->
+                  <div v-if="afficherClous ">
+                    <div
+                      v-for="c in clousHautActifs"
+                      :key="'clou-top-' + c.index"
+                      class="position-absolute clou"
+                      :style="{
+                        top: `-${clouOffset}px`,
+                        left: `${c.index * distanceClousHorizontal}em` ,
+                        transform: 'translateX(-50%)'
+                      }"
+                    ></div>
+                    <div
+                      v-for="c in clousBasActifs"
+                      :key="'clou-bottom-' + c.index"
+                      class="position-absolute clou"
+                      :style="{
+                        top: `${nbLignes * distanceClousVertical}em`,
+                        left: `${c.index * distanceClousHorizontal}em`,
+                        transform: 'translateX(-50%)'
+                      }"
+                    ></div>
+                    <div
+                      v-for="c in clousGaucheActifs"
+                      :key="'clou-left-' + c.index"
+                      class="position-absolute clou"
+                      :style="{
+                        left: `-${clouOffset}px`,
+                        top: `${c.index * distanceClousVertical}em`,
+                        transform: 'translateY(-50%)'
+                      }"
+                    ></div>
+                    <div
+                      v-for="c in clousDroiteActifs"
+                      :key="'clou-right-' + c.index"
+                      class="position-absolute clou"
+                      :style="{
+                        left: `${nbColonnes * distanceClousHorizontal}em`,
+                        top: `${c.index * distanceClousVertical}em`,
+                        transform: 'translateY(-50%)'
+                      }"
+                    ></div>
+                  </div>
+                </div>
+            </div>
+
+
+            <!-- Colonne 2.2 : Répétition -->
+          
+              <div class="col-12 col-6-at-1300 d-flex flex-column d-print-none"  >
+                <h5 class="mt-3">Répétition {{echelle}}x{{ echelle }}</h5>
+                <div
+                  class="flex-fill "
+                  :style="{
+                    backgroundImage: previewDataUrl ? `url(${previewDataUrl})` : 'none',
+                    backgroundRepeat: 'repeat',
+                    backgroundSize: `${nbColonnes * distanceClousHorizontal / echelle}em ${nbLignes * distanceClousVertical / echelle}em`,
+                    backgroundColor: '#fff',
+                    minHeight: '0'
+                  }"
+                ></div>
+              </div>
+
             </div>
           </div>
         </div>
+
       </div>
+
+      <!-- MODAL -->
+      <div v-if="showModal" class="modal-backdrop" style="position:fixed; top:0; left:0; right:0; bottom:0; background:#00000088; z-index:10;">
+        <div class="modal d-block" tabindex="-1" style="z-index:11;">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">{{ editingIndex !== null ? 'Modifier' : 'Ajouter' }} un fil {{ modalType }}</h5>
+                <button type="button" class="btn-close" @click="closeModal()"></button>
+              </div>
+            <div class="modal-body">
+                <label class="form-label">Couleur</label>
+                <input
+                  type="color"
+                  v-model="modalColor"
+                  class="form-control form-control-color mb-3"
+                />
+
+                <label class="form-label">Épaisseur : {{ modalEpaisseur.toFixed(2) }} em</label>
+                <input
+                  type="range"
+                  v-model.number="modalEpaisseur"
+                  min="0.2"
+                  max="1.2"
+                  step="0.01"
+                  class="form-range"
+                />
+                <!-- APERÇU EN DIRECT -->
+                <div
+                  class="my-3 mx-auto"
+                  :style="{
+                    height: modalEpaisseur + 'em',
+                    width: '80%',
+                    backgroundColor: modalColor,
+                    border: '1px solid #000',
+                    borderRadius: '4px'
+                  }"
+                ></div>
+
+              </div>
+              
+
+              <div class="modal-footer">
+                <button class="btn btn-secondary" @click="closeModal">Annuler</button>
+                <button class="btn btn-primary" @click="confirmAddFil">OK</button>
+              </div>
+            </div>
+          </div>
+        </div>
     </div>
   </div>
 </template>
@@ -550,6 +564,8 @@ html, body, .container-fluid, .row {
   height: 100%;
 }
 
+.pointer { cursor: pointer; }
+
 
 .flex-fill {
   flex: 1 1 auto;
@@ -574,6 +590,13 @@ html, body, .container-fluid, .row {
 .tissage-preview svg {
   image-rendering: pixelated;
 }
+
+@media (min-width: 1300px) {
+  .col-6-at-1300 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+} 
 
 
 
